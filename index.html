@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Jeu du Dino Hardcore</title>
+  <style>
+    body {
+      margin: 0;
+      background: #f7f7f7;
+      font-family: Arial, sans-serif;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      margin: auto;
+      background: #fff;
+      border: 2px solid #333;
+    }
+    #score {
+      text-align: center;
+      font-size: 20px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas" width="800" height="200"></canvas>
+  <div id="score">Score : 0 | Meilleur : 0 | Vitesse : 6</div>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    let dino = { x: 50, y: 150, width: 40, height: 40, dy: 0, jumping: false };
+    let gravity = 0.6;
+    let obstacles = [];
+    let frame = 0;
+    let score = 0;
+    let bestScore = 0;
+    let gameOver = false;
+
+    let baseSpeed = 6;
+    let maxSpeed = 25;
+
+    function drawDino() {
+      ctx.fillStyle = "#333";
+      ctx.fillRect(dino.x, dino.y, dino.width, dino.height);
+    }
+
+    function drawObstacles() {
+      obstacles.forEach(obs => {
+        if (obs.type === "cactus") {
+          ctx.fillStyle = "#e74c3c";
+          ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+        } else if (obs.type === "bird") {
+          ctx.fillStyle = "#3498db";
+          ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+          ctx.fillRect(obs.x - 5, obs.y - 5, 10, 5); // ailes
+        }
+      });
+    }
+
+    function updateObstacles() {
+      let currentSpeed = Math.min(baseSpeed + Math.floor(score / 100), maxSpeed);
+
+      obstacles.forEach(obs => obs.x -= currentSpeed);
+      obstacles = obstacles.filter(obs => obs.x + obs.width > 0);
+
+      // fréquence diminue avec le score (plus dur)
+      let spawnRate = Math.max(50, 90 - Math.floor(score / 200));
+
+      if (frame % spawnRate === 0) {
+        let type = Math.random();
+        if (type < 0.7) {
+          // série de cactus (1 à 3)
+          let count = 1 + Math.floor(Math.random() * 3);
+          for (let i = 0; i < count; i++) {
+            let height = 40 + Math.random() * 30;
+            obstacles.push({
+              x: canvas.width + i * 30,
+              y: canvas.height - height,
+              width: 20,
+              height: height,
+              type: "cactus"
+            });
+          }
+        } else {
+          // oiseau volant
+          let yPos = 100 + Math.random() * 50;
+          obstacles.push({ x: canvas.width, y: yPos, width: 30, height: 20, type: "bird" });
+        }
+      }
+    }
+
+    function collision() {
+      return obstacles.some(obs =>
+        dino.x < obs.x + obs.width &&
+        dino.x + dino.width > obs.x &&
+        dino.y < obs.y + obs.height &&
+        dino.y + dino.height > obs.y
+      );
+    }
+
+    function update() {
+      if (gameOver) return;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Dino jump
+      dino.y += dino.dy;
+      if (dino.y + dino.height < canvas.height) {
+        dino.dy += gravity;
+      } else {
+        dino.y = canvas.height - dino.height;
+        dino.dy = 0;
+        dino.jumping = false;
+      }
+
+      drawDino();
+      updateObstacles();
+      drawObstacles();
+
+      if (collision()) {
+        gameOver = true;
+        bestScore = Math.max(bestScore, score);
+        document.getElementById("score").innerText =
+          `Game Over ! Score : ${score} | Meilleur : ${bestScore}`;
+        return;
+      }
+
+      score++;
+      let currentSpeed = Math.min(baseSpeed + Math.floor(score / 100), maxSpeed);
+      document.getElementById("score").innerText =
+        `Score : ${score} | Meilleur : ${bestScore} | Vitesse : ${currentSpeed}`;
+
+      frame++;
+      requestAnimationFrame(update);
+    }
+
+    document.addEventListener("keydown", e => {
+      if (e.code === "Space" && !dino.jumping) {
+        dino.dy = -12;
+        dino.jumping = true;
+      }
+      if (gameOver && e.code === "Enter") {
+        // reset
+        obstacles = [];
+        score = 0;
+        frame = 0;
+        dino.y = 150;
+        dino.dy = 0;
+        gameOver = false;
+        update();
+      }
+    });
+
+    update();
+  </script>
+</body>
+</html>
